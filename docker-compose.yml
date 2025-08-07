@@ -64,6 +64,7 @@ x-airflow-common:
     POSTGRES_DB: ${POSTGRES_DB}
     POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
     POSTGRES_ADMIN_PWD: ${POSTGRES_ADMIN_PWD}
+    DAG_PACKAGE: ${DAG_PACKAGE}
     # yamllint disable rule:line-length
     # Use simple hAttp server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -80,11 +81,10 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - ${AIRFLOW_PROJ_DIR:-.}/dags/activities:/opt/airflow/dags/activities
-    - ./scripts/activities/__init__.py:/opt/airflow/dags/activities/__init__.py
-    - ./scripts/activities/functions.py:/opt/airflow/dags/activities/functions.py
-    - ./scripts/activities/activities.py:/opt/airflow/dags/activities/activities.py
-    - ./scripts/activities/requirements.txt:/opt/airflow/dags/activities/requirements.txt
+    - ${AIRFLOW_PROJ_DIR:-.}/dags/${DAG_PACKAGE}:/opt/airflow/dags/${DAG_PACKAGE}
+    - ./scripts/${DAG_PACKAGE}/__init__.py:/opt/airflow/dags/${DAG_PACKAGE}/__init__.py
+    - ./scripts/${DAG_PACKAGE}/functions.py:/opt/airflow/dags/${DAG_PACKAGE}/functions.py
+    - ./scripts/${DAG_PACKAGE}/${DAG_PACKAGE}.py:/opt/airflow/dags/${DAG_PACKAGE}/${DAG_PACKAGE}.py
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on

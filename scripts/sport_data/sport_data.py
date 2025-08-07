@@ -1,5 +1,5 @@
 """
-Airflow DAG managing activity
+Airflow DAG managing Sport Data data management
 """
 
 from __future__ import annotations
@@ -10,12 +10,12 @@ from datetime import datetime, timedelta
 from airflow.models.dag import DAG
 
 # Get helper functions
-from activities.functions import import_hr, generate_activities_from_scratch, check_activities
+from sport_data.functions import import_hr, generate_activities_from_scratch, check_activities
 
 
 # [START instantiate_dag]
 with DAG(
-    "activities",
+    "sport_data",
     # [START default_args]
     # These args will get passed on to each operator
     # You can override them on a per-task basis during operator initialization
