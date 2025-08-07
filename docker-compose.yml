@@ -54,11 +54,16 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PWD}@postgres/${POSTGRES_DB}
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    RH_DATA_FILE: ${RH_DATA_FILE}
+    SPORTS_DATA_FILE: ${SPORTS_DATA_FILE}
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
+    POSTGRES_ADMIN_PWD: ${POSTGRES_ADMIN_PWD}
     # yamllint disable rule:line-length
     # Use simple hAttp server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -79,6 +84,7 @@ x-airflow-common:
     - ./scripts/activities/__init__.py:/opt/airflow/dags/activities/__init__.py
     - ./scripts/activities/functions.py:/opt/airflow/dags/activities/functions.py
     - ./scripts/activities/activities.py:/opt/airflow/dags/activities/activities.py
+    - ./scripts/activities/requirements.txt:/opt/airflow/dags/activities/requirements.txt
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -87,15 +93,16 @@ x-airflow-common:
 
 services:
   postgres:
+    container_name: postgres
     image: postgres:13
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PWD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_ADMIN_USER}"]
       interval: 10s
       retries: 5
       start_period: 5s
@@ -228,24 +235,6 @@ services:
   # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
   # See: https://docs.docker.com/compose/profiles/
-  flower:
-    <<: *airflow-common
-    command: celery flower
-    profiles:
-      - flower
-    ports:
-      - "5555:5555"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
 volumes:
   postgres-db-volume:

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from airflow.models.dag import DAG
 
 # Get helper functions
-from activities.functions import generate_activities_from_scratch, check_activities
+from activities.functions import import_hr, generate_activities_from_scratch, check_activities
 
 
 # [START instantiate_dag]
@@ -48,5 +48,6 @@ with DAG(
     tags=["activities"],
 ) as dag:
 
+    import_hr()
     generate_activities_from_scratch()
     check_activities()
