@@ -54,17 +54,20 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PWD}@postgres/${POSTGRES_DB}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PWD}@postgres/airflow
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__HIDE_SENSITIVE_VAR_CONN_FIELDS: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     RH_DATA_FILE: ${RH_DATA_FILE}
     SPORTS_DATA_FILE: ${SPORTS_DATA_FILE}
-    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
     POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
     POSTGRES_ADMIN_PWD: ${POSTGRES_ADMIN_PWD}
     DAG_PACKAGE: ${DAG_PACKAGE}
+    POSTGRES_DB_HOST: ${POSTGRES_DB_HOST}
+    SPORT_DATA_SQL_ALCHEMY_CONN: ${SPORT_DATA_SQL_ALCHEMY_CONN}
     # yamllint disable rule:line-length
     # Use simple hAttp server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -90,17 +93,37 @@ x-airflow-common:
     &airflow-common-depends-on
     postgres:
       condition: service_healthy
+    sport_data_db:
+      condition: service_healthy
 
 services:
+  sport_data_db:
+    container_name: sport_data_db
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PWD}
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - sport-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_ADMIN_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
   postgres:
     container_name: postgres
     image: postgres:13
     environment:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PWD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - airflow-db-volume:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_ADMIN_USER}"]
       interval: 10s
@@ -204,8 +227,8 @@ services:
           echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
           echo
         fi
-        mkdir -p /sources/logs /sources/dags /sources/plugins /includes
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins,includes}
+        mkdir -p /sources/logs /sources/dags /sources/plugins /config
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins,config}
         exec /entrypoint airflow version
     # yamllint enable rule:line-length
     environment:
@@ -218,6 +241,7 @@ services:
     user: "0:0"
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}:/sources
+      - ./scripts/${DAG_PACKAGE}/variables.json:/sources/dags/${DAG_PACKAGE}/variables.json
 
   airflow-cli:
     <<: *airflow-common
@@ -237,4 +261,5 @@ services:
   # See: https://docs.docker.com/compose/profiles/
 
 volumes:
-  postgres-db-volume:
+  airflow-db-volume:
+  sport-db-volume:

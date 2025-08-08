@@ -5,6 +5,7 @@ Airflow DAG managing Sport Data data management
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 # The DAG object; we'll need this to instantiate a DAG
 from airflow.models.dag import DAG
@@ -48,6 +49,9 @@ with DAG(
     tags=["activities"],
 ) as dag:
 
+    # Load environment
+    load_dotenv()
+    # Execute tasks
     import_hr()
     generate_activities_from_scratch()
     check_activities()
