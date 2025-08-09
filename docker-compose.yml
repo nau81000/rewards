@@ -114,7 +114,25 @@ services:
       retries: 5
       start_period: 5s
     restart: always
-
+  init_sport_data_db:
+    container_name: init_sport_data_db
+    image: python:3.12-slim
+    environment:
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
+      POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_ADMIN_PWD: ${POSTGRES_ADMIN_PWD}
+      POSTGRES_DB_HOST: ${POSTGRES_DB_HOST}
+      SPORT_DATA_SQL_ALCHEMY_CONN: ${SPORT_DATA_SQL_ALCHEMY_CONN}
+      RH_DATA_FILE: ${RH_DATA_FILE}
+      SPORTS_DATA_FILE: ${SPORTS_DATA_FILE}
+    volumes:
+      - ./scripts/${DAG_PACKAGE}/init-db.py:/app/init-db.py
+    working_dir: /app
+    command: >
+      sh -c "pip install pandas openpyxl sqlalchemy psycopg2-binary dotenv && python init-db.py"
+    depends_on:
+      sport_data_db:
+        condition: service_healthy
   postgres:
     container_name: postgres
     image: postgres:13
