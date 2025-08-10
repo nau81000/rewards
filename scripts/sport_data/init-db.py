@@ -1,7 +1,7 @@
 """
 Helper functions to manage activities 
 """
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, exc
 from dotenv import load_dotenv
 from os import getenv
 import sys
@@ -12,40 +12,52 @@ def create_tables(cursor, conn1):
     """
     """
     tables= {
+        'movement_means': {
+            'id_movement_means': 'int PRIMARY KEY',
+            'movement_means': 'text'
+        },
+        'contract_types': {
+            'id_contract_type': 'int PRIMARY KEY',
+            'contract_type': 'text'
+        },
+        'business_units': {
+            'id_bu': 'int PRIMARY KEY',
+            'bu': 'text'
+        },
+        'sports': {
+            'id_sport': 'int PRIMARY KEY',
+            'sport': 'text'
+        },
+        'activities': {
+            'id_employee': 'int PRIMARY KEY',
+            'name': 'text',
+            'type': 'text',
+            'sport_type': 'text',
+            'description': 'text',
+            'start_date_local': 'date',
+            'elapsed_time': 'int',
+            'distance': 'float',
+            'trainer': 'int',
+            'commute': 'int'
+        },
         'employees': {
             'id_employee': 'int PRIMARY KEY',
-            'last_name': 'char(100)',
-            'first_name': 'char(100)',
+            'last_name': 'text',
+            'first_name': 'text',
             'birth_date': 'date',
             'hire_date': 'date',
             'income': 'int',
             'vacation_days': 'int',
-            'address': 'char(500)',
-            'id_bu': 'int',
+            'address': 'text',
+            'id_bu': 'int REFERENCES business_units (id_bu)',
             'id_movement_means': 'int',
-            'id_contract_type': 'int',
+            'id_contract_type': 'int REFERENCES contract_types (id_contract_type)',
             'id_sport': 'int'
-        },
-        'movement_means': {
-            'id_movement_means': 'int PRIMARY KEY',
-            'movement_means': 'char(100)'
-        },
-        'contract_types': {
-            'id_contract_type': 'int PRIMARY KEY',
-            'contract_type': 'char(100)'
-        },
-        'business_units': {
-            'id_bu': 'int PRIMARY KEY',
-            'bu': 'char(100)'
-        },
-        'sports': {
-            'id_sport': 'int PRIMARY KEY',
-            'sport': 'char(100)'
         }
     }
     for table in tables:
         # drop table if it already exists
-        cursor.execute(f"drop table if exists {table}")
+        #cursor.execute(f"DROP TABLE if exists {table}")
         # Create table
         sql = f"CREATE TABLE {table}"
         first = True
@@ -57,8 +69,21 @@ def create_tables(cursor, conn1):
                 sql += ','
             sql += f"{key} {value}"
         sql += ");"
-        cursor.execute(sql)
+        try:
+            cursor.execute(sql)
+        except pg.errors.DuplicateTable:
+            # The table already exists
+            pass
         conn1.commit()
+
+def import_records(dataframe, table_name, conn):
+    """ Import records in table
+    """
+    try:
+        dataframe.to_sql(table_name, conn, if_exists= 'append', index=False)
+    except exc.IntegrityError:
+        # The primary key already exists
+        pass
 
 def import_tables(conn):
     """ Import human resources data from url
@@ -113,11 +138,11 @@ def import_tables(conn):
     # Finally merge with employee dataframe
     df_hr = df_hr.merge(df_employee_sports, on='id_employee', how='left')
     # Push records into tables
-    df_hr.to_sql('employees', conn, if_exists= 'replace', index=False)
-    df_mm.to_sql('movement_means', conn, if_exists= 'replace', index=False)
-    df_contract_types.to_sql('contract_types', conn, if_exists= 'replace', index=False)
-    df_bu.to_sql('business_units', conn, if_exists= 'replace', index=False)
-    df_sports.to_sql('sports', conn, if_exists= 'replace', index=False)
+    import_records(df_bu, 'business_units', conn)
+    import_records(df_mm, 'movement_means', conn)
+    import_records(df_contract_types, 'contract_types', conn)
+    import_records(df_sports, 'sports', conn)
+    import_records(df_hr, 'employees', conn)
 
 def main():
     """ Create tables
@@ -140,6 +165,7 @@ def main():
     cursor = conn1.cursor()
     # Create tables
     create_tables(cursor, conn1)
+    # Import tables
     import_tables(conn)
     conn1.close()
     conn.close()
