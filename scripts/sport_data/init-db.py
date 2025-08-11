@@ -31,15 +31,6 @@ def create_tables(cursor, conn1):
             'id_sport': 'int PRIMARY KEY',
             'sport': 'text'
         },
-        'activities': {
-            'id': 'SERIAL PRIMARY KEY',
-            'id_employee': 'int NOT NULL',
-            'id_sport': 'int NOT NULL',
-            'distance': 'float',
-            'start_date': 'date NOT NULL',
-            'end_date': 'date NOT NULL',
-            'comment': 'text'
-        },
         'employees': {
             'id_employee': 'int PRIMARY KEY',
             'last_name': 'text',
@@ -53,6 +44,15 @@ def create_tables(cursor, conn1):
             'id_movement_means': 'int',
             'id_contract_type': 'int REFERENCES contract_types (id_contract_type)',
             'id_sport': 'int'
+        },
+        'activities': {
+            'id': 'SERIAL PRIMARY KEY',
+            'id_employee': 'int REFERENCES employees (id_employee)',
+            'id_sport': 'int REFERENCES sports (id_sport)',
+            'distance': 'float',
+            'start_date': 'timestamp NOT NULL',
+            'end_date': 'timestamp NOT NULL',
+            'comment': 'text'
         }
     }
     for table in tables:
