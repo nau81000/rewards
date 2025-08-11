@@ -4,9 +4,12 @@ Helper functions to manage activities
 from sqlalchemy import create_engine, exc
 from dotenv import load_dotenv
 from os import getenv
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 import sys
 import pandas as pd
 import psycopg2 as pg
+import numpy as np
 
 def create_tables(cursor, conn1):
     """
@@ -29,16 +32,13 @@ def create_tables(cursor, conn1):
             'sport': 'text'
         },
         'activities': {
-            'id_employee': 'int PRIMARY KEY',
-            'name': 'text',
-            'type': 'text',
-            'sport_type': 'text',
-            'description': 'text',
-            'start_date_local': 'date',
-            'elapsed_time': 'int',
+            'id': 'SERIAL PRIMARY KEY',
+            'id_employee': 'int NOT NULL',
+            'id_sport': 'int NOT NULL',
             'distance': 'float',
-            'trainer': 'int',
-            'commute': 'int'
+            'start_date': 'date NOT NULL',
+            'end_date': 'date NOT NULL',
+            'comment': 'text'
         },
         'employees': {
             'id_employee': 'int PRIMARY KEY',
@@ -76,7 +76,7 @@ def create_tables(cursor, conn1):
             pass
         conn1.commit()
 
-def import_records(dataframe, table_name, conn):
+def import_records(conn, dataframe, table_name):
     """ Import records in table
     """
     try:
@@ -138,11 +138,74 @@ def import_tables(conn):
     # Finally merge with employee dataframe
     df_hr = df_hr.merge(df_employee_sports, on='id_employee', how='left')
     # Push records into tables
-    import_records(df_bu, 'business_units', conn)
-    import_records(df_mm, 'movement_means', conn)
-    import_records(df_contract_types, 'contract_types', conn)
-    import_records(df_sports, 'sports', conn)
-    import_records(df_hr, 'employees', conn)
+    import_records(conn, df_bu, 'business_units', )
+    import_records(conn, df_mm, 'movement_means')
+    import_records(conn, df_contract_types, 'contract_types')
+    import_records(conn, df_sports, 'sports')
+    import_records(conn, df_hr, 'employees')
+    return df_hr
+
+def generate_activities_days(date_ref):
+    """ Generate two days activities per month on sunday
+        around the 5th and 20th
+    """
+    def nearest_sunday(year, month, day):
+        """ Find the nearest sunday around a given date
+        """
+        target = date(year, month, day)
+        # Sunday is day of week 6
+        offset = (6 - target.weekday()) % 7
+        before_offset = (target.weekday() - 6) % 7
+        # Choose the nearest
+        if before_offset <= offset:
+            return target - timedelta(days=before_offset)
+        else:
+            return target + timedelta(days=offset)
+
+    # Choose two dates per month in the last past year
+    dates = []
+    for i in range(12):
+        month_date = date_ref - relativedelta(months=i)
+        year, month = month_date.year, month_date.month
+        sunday_near_5 = nearest_sunday(year, month, 5)
+        sunday_near_20 = nearest_sunday(year, month, 20)
+        dates.extend([sunday_near_5, sunday_near_20])
+    # Sort the dates
+    dates = sorted(set(dates))
+    # Keep only dates <= date_ref
+    return [d for d in dates if d <= date_ref]
+
+def generate_activities(conn, df_hr):
+    """ Simulate activities for employees
+
+    For each employees declaring an usual sport, we'll create 24 activities (2 per month)
+    for the past year
+    """
+            # 'id': 'int PRIMARY KEY',
+            # 'id_employee': 'int NOT NULL',
+            # 'id_sport': 'int NOT NULL',
+            # 'distance': 'float',
+            # 'start_date': 'date NOT NULL',
+            # 'end_date': 'date NOT NULL',
+            # 'comment': 'text'
+    # Generate dates from today
+    dates = generate_activities_days(date.today())
+    # Create activities dataframe
+    df_activities = df_hr.loc[df_hr['id_sport'] > 0,['id_employee', 'id_sport']]
+    df_activities['comment'] = 'super'
+    # Set 10000 meters distance for hiking, triathlon and runing, 0 for any other activity
+    df_activities['distance'] = np.where(df_activities["id_sport"].isin([4, 5, 6]), 10000, 0)
+    df_activities['start_date'] = str(dates[0]) + ' 08:00:00'
+    df_activities['end_date'] = str(dates[0]) + ' 10:00:00'
+    # Create duplicates
+    df_dupes = pd.concat(
+        [df_activities.assign(start_date=(str(dates[idx]) + ' 08:00:00'), end_date=(str(dates[idx]) + ' 10:00:00'))
+        for idx in range(1, len(dates))],
+        ignore_index=True
+    )
+    # Merge original + duplicates
+    df_result = pd.concat([df_activities, df_dupes], ignore_index=True)
+    import_records(conn, df_result, 'activities')
 
 def main():
     """ Create tables
@@ -166,7 +229,10 @@ def main():
     # Create tables
     create_tables(cursor, conn1)
     # Import tables
-    import_tables(conn)
+    df_hr = import_tables(conn)
+    # Generate activities
+    generate_activities(conn, df_hr)
+    # Close connections
     conn1.close()
     conn.close()
     return 0
