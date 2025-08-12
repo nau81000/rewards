@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from airflow.models.dag import DAG
 
 # Get helper functions
-from sport_data.functions import generate_activities_from_scratch, check_activities
+from sport_data.functions import get_activities
 
 
 # [START instantiate_dag]
@@ -52,5 +52,4 @@ with DAG(
     # Load environment
     load_dotenv()
     # Execute tasks
-    generate_activities_from_scratch()
-    check_activities()
+    get_activities()

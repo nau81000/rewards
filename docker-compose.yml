@@ -303,7 +303,6 @@ services:
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     restart: unless-stopped
-
   postgresql-exporter:
     image: prometheuscommunity/postgres-exporter
     container_name: postgresql-exporter
@@ -317,6 +316,16 @@ services:
       sport_data_db:
         condition: service_healthy
     restart: unless-stopped
+  strava-like-server:
+    container_name: strava_like_server
+    image: python:3.12-slim
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./scripts/strava_like/server.py:/app/server.py
+    working_dir: /app
+    command: >
+      sh -c "pip install --upgrade pip && pip install flask && python server.py"
 
 volumes:
   airflow-db-volume:

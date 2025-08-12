@@ -181,13 +181,6 @@ def generate_activities(conn, df_hr):
     For each employees declaring an usual sport, we'll create 24 activities (2 per month)
     for the past year
     """
-            # 'id': 'int PRIMARY KEY',
-            # 'id_employee': 'int NOT NULL',
-            # 'id_sport': 'int NOT NULL',
-            # 'distance': 'float',
-            # 'start_date': 'date NOT NULL',
-            # 'end_date': 'date NOT NULL',
-            # 'comment': 'text'
     # Generate dates from today
     dates = generate_activities_days(date.today())
     # Create activities dataframe
