@@ -9,13 +9,29 @@ import psycopg2 as pg
 import great_expectations as gx
 import logging
 
-def check_activity (df_employee):
-    """ Check activity from data frame
+@task(task_id="get_activities")
+def get_activities ():
+    """ Get activities from a server
     """
-    # Be sure that date columns have right type
-    df_employee['start_date'] = pd.to_datetime(df_employee['start_date'])
-    df_employee['end_date'] = pd.to_datetime(df_employee['end_date'])
-    # Create context
+    # Set great_expectations logging less verbose
+    logging.getLogger("great_expectations").setLevel(logging.ERROR)
+    # Connection to DB
+    config = {
+           'host': getenv("POSTGRES_DB_HOST"),
+           'dbname': getenv("POSTGRES_DB_NAME"), 
+           'user': getenv("POSTGRES_ADMIN_USER"), 
+           'password': getenv("POSTGRES_ADMIN_PWD"),
+           'port': 5432
+    }
+    db = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
+    conn = db.connect()
+    conn1 = pg.connect(**config)
+    conn1.autocommit = True
+    cursor = conn1.cursor()
+    # Get all employee ids first
+    cursor.execute("SELECT id_employee FROM employees ORDER BY id_employee")
+    employees = cursor.fetchall()
+    # Create context to check activities
     context = gx.get_context()
     # Add a Pandas Data Source
     data_source = context.data_sources.add_pandas(name="activity")
@@ -40,41 +56,17 @@ def check_activity (df_employee):
             type_ = "datetime64"
         )
     )
-    # Get the dataframe as a Batch
-    batch_parameters = {"dataframe": df_employee}
-    batch = batch_definition.get_batch(batch_parameters=batch_parameters)
-    # Test the Expectation
-    return batch.validate(expectation_suite)
-
-@task(task_id="get_activities")
-def get_activities ():
-    """ Get activities from a server
-    """
-    # Set great_expectations logging less verbose
-    logging.getLogger("great_expectations").setLevel(logging.ERROR)
-    # Connection to DB
-    config = {
-           'host': getenv("POSTGRES_DB_HOST"),
-           'dbname': getenv("POSTGRES_DB_NAME"), 
-           'user': getenv("POSTGRES_ADMIN_USER"), 
-           'password': getenv("POSTGRES_ADMIN_PWD"),
-           'port': 5432
-    }
-    db = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
-    conn = db.connect()
-    conn1 = pg.connect(**config)
-    conn1.autocommit = True
-    cursor = conn1.cursor()
-    # Get all employee ids first
-    cursor.execute("SELECT id_employee FROM employees ORDER BY id_employee")
-    employees = cursor.fetchall()
     # Get activities for each employee
     for row in employees:
-        employee = row[0]
-        df_employee = pd.read_json(f"http://strava-like-server:5000/employee/{employee}")
-        res = check_activity(df_employee)
-        print(res)
-        if res['success']:
+        # Get activity from server
+        df_employee = pd.read_json(f"http://strava-like-server:5000/employee/{row[0]}")
+        # Be sure that some columns have right type
+        df_employee['start_date'] = pd.to_datetime(df_employee['start_date'])
+        df_employee['end_date'] = pd.to_datetime(df_employee['end_date'])
+        # Check data
+        batch = batch_definition.get_batch(batch_parameters={"dataframe": df_employee})
+        validity = batch.validate(expectation_suite)
+        if validity['success']:
             try:
                 df_employee.to_sql('activities', conn, if_exists= 'append', index=False)
             except Exception as e:
