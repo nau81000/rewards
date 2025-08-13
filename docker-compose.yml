@@ -93,19 +93,27 @@ x-airflow-common:
     &airflow-common-depends-on
     postgres:
       condition: service_healthy
-    sport_data_db:
+    sport-data-db:
       condition: service_healthy
-
 services:
-  sport_data_db:
+  sport-data-db:
     container_name: sport_data_db
-    image: postgres:13
+    image: debezium/postgres:16
     environment:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PWD}
       POSTGRES_DB: ${POSTGRES_DB_NAME}
+      PGPASSWORD: ${POSTGRES_ADMIN_PWD}
     ports:
       - "5432:5432"
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=5
+      - -c
+      - max_replication_slots=5
     volumes:
       - sport-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -114,7 +122,7 @@ services:
       retries: 5
       start_period: 5s
     restart: always
-  init_sport_data_db:
+  init-sport-data-db:
     container_name: init_sport_data_db
     image: python:3.12-slim
     environment:
@@ -131,8 +139,84 @@ services:
     command: >
       sh -c "pip install --upgrade pip && pip install pandas openpyxl sqlalchemy psycopg2-binary dotenv && python init-db.py"
     depends_on:
-      sport_data_db:
+      sport-data-db:
         condition: service_healthy
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v25.2.1
+    container_name: redpanda
+    command:
+      - redpanda start
+      # Mode dev-container uses well-known configuration properties for development in containers.
+      - --mode dev-container
+      # Tells Seastar (the framework Redpanda uses under the hood) to use 1 core on the system.
+      - --smp 1
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      # Address the broker advertises to clients that connect to the Kafka API.
+      # Use the internal addresses to connect to the Redpanda brokers
+      # from inside the same Docker network.
+      # Use the external addresses to connect to the Redpanda brokers
+      # from outside the Docker network.
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      # Address the broker advertises to clients that connect to the HTTP Proxy.
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      # Redpanda brokers use the RPC API to communicate with each other internally.
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+    ports:
+      - 18081:18081
+      - 18082:18082
+      - 19092:19092
+      - 19644:9644
+    volumes:
+      - redpanda:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+  debezium:
+    image: debezium/connect:2.4
+    container_name: debezium
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+    depends_on: [sport-data-db, redpanda]
+    ports:
+      - 8083:8083
+  debezium-connector-init:
+    image: curlimages/curl:8.5.0
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      sport-data-db:
+        condition: service_healthy
+    command: >
+      sh -c "
+      echo 'Attente de Debezium...' &&
+      sleep 10 &&
+      echo '🚀 Création du connecteur Debezium...' &&
+      curl -H 'Content-Type: application/json' debezium:8083/connectors --data '
+        {
+          \"name\": \"postgres-connector\",
+          \"config\": {
+            \"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\",
+            \"plugin.name\": \"pgoutput\",
+            \"database.hostname\": \"${POSTGRES_DB_HOST}\",
+            \"database.port\": \"5432\",
+            \"database.user\": \"${POSTGRES_ADMIN_USER}\",
+            \"database.password\": \"${POSTGRES_ADMIN_PWD}\",
+            \"database.dbname\": \"${POSTGRES_DB_NAME}\",
+            \"database.server.name\": \"${POSTGRES_DB_HOST}\",
+            \"table.include.list\": \"public.activities\",
+            \"topic.prefix\" : \"dbz\"
+          }
+        }'
+      "
   postgres:
     container_name: postgres
     image: postgres:13
@@ -148,7 +232,6 @@ services:
       retries: 5
       start_period: 5s
     restart: always
-
   airflow-webserver:
     <<: *airflow-common
     command: webserver
@@ -165,7 +248,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
@@ -180,7 +262,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
@@ -195,7 +276,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
@@ -260,7 +340,6 @@ services:
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}:/sources
       - ./scripts/${DAG_PACKAGE}/variables.json:/sources/dags/${DAG_PACKAGE}/variables.json
-
   airflow-cli:
     <<: *airflow-common
     profiles:
@@ -273,11 +352,9 @@ services:
       - bash
       - -c
       - airflow
-
   # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
   # See: https://docs.docker.com/compose/profiles/
-
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -313,7 +390,7 @@ services:
     depends_on:
       prometheus:
         condition: service_started
-      sport_data_db:
+      sport-data-db:
         condition: service_healthy
     restart: unless-stopped
   strava-like-server:
@@ -333,3 +410,4 @@ volumes:
   prometheus:
   grafana:
   postgresql-exporter:
+  redpanda:
