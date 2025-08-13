@@ -9,6 +9,17 @@ import psycopg2 as pg
 import great_expectations as gx
 import logging
 
+def declared_activity_yet (cursor, df_employee):
+    """ Check whether an activity is already declared or not
+    """
+    values = df_employee.iloc[0]
+    cursor.execute(
+        f"SELECT COUNT(id_employee) FROM activities \
+            WHERE id_employee={values['id_employee']} \
+                  AND start_date='{values['start_date']}'"
+    )
+    return cursor.fetchone()[0]
+
 @task(task_id="get_activities")
 def get_activities ():
     """ Get activities from a server
@@ -68,7 +79,8 @@ def get_activities ():
         validity = batch.validate(expectation_suite)
         if validity['success']:
             try:
-                df_employee.to_sql('activities', conn, if_exists= 'append', index=False)
+                if not declared_activity_yet(cursor, df_employee):
+                    df_employee.to_sql('activities', conn, if_exists= 'append', index=False)
             except Exception as e:
                 # TODO
                 pass
