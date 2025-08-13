@@ -1,2 +1,3 @@
+.env
 docker
 scripts/sport_data/__pycache__
