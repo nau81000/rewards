@@ -234,10 +234,25 @@ services:
             \"database.dbname\": \"${POSTGRES_DB_NAME}\",
             \"database.server.name\": \"${POSTGRES_DB_HOST}\",
             \"table.include.list\": \"public.activities\",
-            \"topic.prefix\" : \"dbz\"
+            \"topic.prefix\" : \"sport_data\"
           }
         }'
       "
+  slack-consumer:
+    container_name: slack_consumer
+    image: python:3.12-slim
+    environment:
+      SLACK_TOKEN: ${SLACK_TOKEN}
+      SLACK_CHANNEL: ${SLACK_CHANNEL}
+      SLACK_USERNAME: ${SLACK_USERNAME}
+    volumes:
+      - ./scripts/slack/redpanda_to_slack.py:/app/redpanda_to_slack.py
+    working_dir: /app
+    command: >
+      sh -c "pip install --upgrade pip && pip install slack_sdk confluent-kafka dotenv babel && python redpanda_to_slack.py"
+    depends_on:
+      redpanda:
+        condition: service_healthy
   postgres:
     container_name: postgres
     image: postgres:13
