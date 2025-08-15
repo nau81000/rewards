@@ -27,8 +27,6 @@
 #                                Default: apache/airflow:2.10.0
 # AIRFLOW_UID                  - User ID in Airflow containers
 #                                Default: 50000
-# AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
-#                                Default: .
 # Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode
 #
 # _AIRFLOW_WWW_USER_USERNAME   - Username for the administrator account (if requested).
@@ -80,11 +78,11 @@ x-airflow-common:
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - ${AIRFLOW_PROJ_DIR:-.}/dags/${DAG_PACKAGE}:/opt/airflow/dags/${DAG_PACKAGE}
+    - ./docker/airflow/config:/opt/airflow/config
+    - ./docker/airflow/dags:/opt/airflow/dags
+    - ./docker/airflow/logs:/opt/airflow/logs
+    - ./docker/airflow/plugins:/opt/airflow/plugins
+    - ./docker/airflow/dags/${DAG_PACKAGE}:/opt/airflow/dags/${DAG_PACKAGE}
     - ./scripts/${DAG_PACKAGE}/__init__.py:/opt/airflow/dags/${DAG_PACKAGE}/__init__.py
     - ./scripts/${DAG_PACKAGE}/functions.py:/opt/airflow/dags/${DAG_PACKAGE}/functions.py
     - ./scripts/${DAG_PACKAGE}/${DAG_PACKAGE}.py:/opt/airflow/dags/${DAG_PACKAGE}/${DAG_PACKAGE}.py
@@ -208,7 +206,9 @@ services:
       OFFSET_STORAGE_TOPIC: connect_offsets
     depends_on: [sport-data-db, redpanda]
     volumes:
-      - ${AIRFLOW_PROJ_DIR}/debezium:/kakfa
+      - ./docker/debezium/config:/kafka/config
+      - ./docker/debezium/data:/kafka/data
+      - ./docker/debezium/logs:/kafka/logs
       - kafka-data:/var/lib/kafka/data
     ports:
       - 8083:8083
@@ -377,7 +377,7 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+      - ./docker/airflow:/sources
       - ./scripts/${DAG_PACKAGE}/variables.json:/sources/dags/${DAG_PACKAGE}/variables.json
   airflow-cli:
     <<: *airflow-common

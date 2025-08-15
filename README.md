@@ -31,7 +31,6 @@ Exemple:
 ```
 AIRFLOW_IMAGE_NAME=apache/airflow:2.10.0 
 AIRFLOW_UID=501
-AIRFLOW_PROJ_DIR=./docker/airflow
 _PIP_ADDITIONAL_REQUIREMENTS=openpyxl great_expectations
 DAG_PACKAGE=sport_data
 POSTGRES_DB_HOST=sport-data-db
@@ -85,6 +84,6 @@ docker-compose down -v
 - Destruction des volumes de l'environnement et de tous les volumes Docker inutilisés avec la commande: 
 
 ```
-rm -rf <AIRFLOW_PROJ_DIR> && docker volume prune -f -a
+rm -rf docker && docker volume prune -f -a
 ```
 
