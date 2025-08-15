@@ -207,6 +207,9 @@ services:
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
     depends_on: [sport-data-db, redpanda]
+    volumes:
+      - ${AIRFLOW_PROJ_DIR}/debezium:/kakfa
+      - kafka-data:/var/lib/kafka/data
     ports:
       - 8083:8083
   debezium-connector-init:
@@ -220,7 +223,7 @@ services:
       sh -c "
       echo 'Attente de Debezium...' &&
       sleep 10 &&
-      echo '🚀 Création du connecteur Debezium...' &&
+      echo 'Création du connecteur Debezium...' &&
       curl -H 'Content-Type: application/json' debezium:8083/connectors --data '
         {
           \"name\": \"postgres-connector\",
@@ -447,3 +450,4 @@ volumes:
   grafana:
   postgresql-exporter:
   redpanda:
+  kafka-data:
