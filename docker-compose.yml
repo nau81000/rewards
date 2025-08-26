@@ -114,6 +114,8 @@ services:
       - max_replication_slots=5
     volumes:
       - sport-db-volume:/var/lib/postgresql/data
+    networks:
+      - frontend
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_ADMIN_USER}"]
       interval: 10s
@@ -134,6 +136,8 @@ services:
     volumes:
       - ./scripts/${DAG_PACKAGE}/init-db.py:/app/init-db.py
     working_dir: /app
+    networks:
+      - frontend
     command: >
       sh -c "pip install --upgrade pip && pip install pandas openpyxl sqlalchemy psycopg2-binary dotenv && python init-db.py"
     depends_on:
@@ -169,6 +173,8 @@ services:
       - 19644:9644
     volumes:
       - redpanda:/var/lib/redpanda/data
+    networks:
+      - frontend
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
       interval: 15s
@@ -192,6 +198,8 @@ services:
           adminApi:
             enabled: true
             urls: ["http://redpanda:9644"]
+    networks:
+      - frontend
     ports:
       - 8081:8080
     depends_on:
@@ -210,6 +218,8 @@ services:
       - ./docker/debezium/data:/kafka/data
       - ./docker/debezium/logs:/kafka/logs
       - kafka-data:/var/lib/kafka/data
+    networks:
+      - frontend
     ports:
       - 8083:8083
   debezium-connector-init:
@@ -219,6 +229,8 @@ services:
         condition: service_healthy
       sport-data-db:
         condition: service_healthy
+    networks:
+      - frontend
     command: >
       sh -c "
       echo 'Attente de Debezium...' &&
@@ -257,6 +269,8 @@ services:
     working_dir: /app
     command: >
       sh -c "pip install --upgrade pip && pip install slack_sdk confluent-kafka dotenv babel psycopg2-binary && python redpanda_to_slack.py"
+    networks:
+      - frontend
     depends_on:
       redpanda:
         condition: service_healthy
@@ -269,6 +283,8 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - airflow-db-volume:/var/lib/postgresql/data
+    networks:
+      - frontend
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_ADMIN_USER}"]
       interval: 10s
@@ -287,6 +303,8 @@ services:
       retries: 5
       start_period: 30s
     restart: always
+    networks:
+      - frontend
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -301,6 +319,8 @@ services:
       retries: 5
       start_period: 30s
     restart: always
+    networks:
+      - frontend
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -315,6 +335,8 @@ services:
       retries: 5
       start_period: 30s
     restart: always
+    networks:
+      - frontend
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -380,6 +402,8 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
+    networks:
+      - frontend
     volumes:
       - ./docker/airflow:/sources
       - ./scripts/${DAG_PACKAGE}/variables.json:/sources/dags/${DAG_PACKAGE}/variables.json
@@ -409,6 +433,8 @@ services:
         - '--storage.tsdb.path=/prometheus'
         - '--web.console.libraries=/usr/share/prometheus/console_libraries'
         - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - frontend
     ports:
         - "9090:9090"
     restart: unless-stopped
@@ -420,6 +446,8 @@ services:
       GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana:/var/lib/grafana
+    networks:
+      - frontend
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     restart: unless-stopped
@@ -436,6 +464,8 @@ services:
       sport-data-db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - frontend
   strava-like-server:
     container_name: strava_like_server
     image: python:3.12-slim
@@ -444,9 +474,69 @@ services:
     volumes:
       - ./scripts/strava_like/server.py:/app/server.py
     working_dir: /app
+    networks:
+      - frontend
     command: >
       sh -c "pip install --upgrade pip && pip install flask && python server.py"
-
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: spark_master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8084:8080"   # Web UI du Master
+      - "7077:7077"   # Port Spark Master
+    volumes:
+      - ./scripts/spark:/opt/spark-apps
+      - ./docker/spark/data:/opt/spark-data
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    container_name: spark_worker
+    volumes:
+      - ./scripts/spark:/opt/spark-apps
+      - ./docker/spark/data:/opt/spark-data
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - HOME=/tmp
+    networks:
+      - frontend
+    depends_on:
+      - spark-master
+  spark-job:
+    image: bitnami/spark:3.5.0
+    container_name: spark_job
+    depends_on:
+      redpanda:
+          condition: service_healthy    
+      spark-master:
+          condition: service_healthy    
+      sport-data-db:
+          condition: service_healthy    
+    volumes:
+      - ./scripts/spark:/opt/spark-apps
+      - ./docker/spark/data:/opt/spark-data
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    networks:
+      - frontend
+    command: >
+      spark-submit
+        --master spark://spark-master:7077
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.3,io.delta:delta-spark_2.12:3.2.0
+        --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+        --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+        /opt/spark-apps/rewards.py
 volumes:
   airflow-db-volume:
   sport-db-volume:
@@ -455,3 +545,7 @@ volumes:
   postgresql-exporter:
   redpanda:
   kafka-data:
+networks:
+  frontend:
+    # Specify driver options
+    driver: bridge
