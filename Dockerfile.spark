@@ -1,0 +1,6 @@
+# Dockerfile extending Bitnami image
+FROM bitnami/spark:3.5.0
+USER root
+RUN pip install --no-cache-dir slack_sdk dotenv babel psycopg2-binary
+USER 1001
+WORKDIR /opt/spark-apps

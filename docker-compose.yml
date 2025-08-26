@@ -256,6 +256,8 @@ services:
   slack-consumer:
     container_name: slack_consumer
     image: python:3.12-slim
+    profiles:
+      - donotstart
     environment:
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
       POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
@@ -479,7 +481,9 @@ services:
     command: >
       sh -c "pip install --upgrade pip && pip install flask && python server.py"
   spark-master:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark_master
     environment:
       - SPARK_MODE=master
@@ -498,7 +502,9 @@ services:
       retries: 5
       start_period: 20s
   spark-worker:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark_worker
     volumes:
       - ./scripts/spark:/opt/spark-apps
@@ -514,7 +520,9 @@ services:
     depends_on:
       - spark-master
   spark-job:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark_job
     depends_on:
       redpanda:
@@ -528,6 +536,13 @@ services:
       - ./docker/spark/data:/opt/spark-data
     environment:
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - POSTGRES_DB_NAME=${POSTGRES_DB_NAME}
+      - POSTGRES_ADMIN_USER=${POSTGRES_ADMIN_USER}
+      - POSTGRES_ADMIN_PWD=${POSTGRES_ADMIN_PWD}
+      - POSTGRES_DB_HOST=${POSTGRES_DB_HOST}
+      - SLACK_TOKEN=${SLACK_TOKEN}
+      - SLACK_CHANNEL=${SLACK_CHANNEL}
+      - SLACK_USERNAME=${SLACK_USERNAME}
     networks:
       - frontend
     command: >
