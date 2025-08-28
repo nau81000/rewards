@@ -5,6 +5,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
 from babel.dates import format_datetime
 from os import getenv
@@ -22,10 +23,10 @@ SLACK_CHANNEL = getenv("SLACK_CHANNEL")
 SLACK_USERNAME = getenv("SLACK_USERNAME")
 OFFICE_ADDRESS = getenv("OFFICE_ADDRESS")
 MAX_HOME_DISTANCE_WALK=getenv("MAX_HOME_DISTANCE_WALK")
-MAX_HOME_DISTANCE_OTHER=getenv("MAX_HOME_DISTANCE_WALK")
-MIN_ACTIVITIES_YEAR=getenv("MAX_HOME_DISTANCE_WALK")
-INCOME_PERCENT_REWARD=getenv("MAX_HOME_DISTANCE_WALK")
-EXTRA_DAYS_REWARD=getenv("MAX_HOME_DISTANCE_WALK")
+MAX_HOME_DISTANCE_OTHER=getenv("MAX_HOME_DISTANCE_OTHER")
+MIN_ACTIVITIES_YEAR=getenv("MIN_ACTIVITIES_YEAR")
+INCOME_PERCENT_REWARD=getenv("INCOME_PERCENT_REWARD")
+EXTRA_DAYS_REWARD=getenv("EXTRA_DAYS_REWARD")
 
 # Connect to DB
 engine = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
@@ -128,6 +129,18 @@ def geocode_addresses(addresses):
             coords.append(None)
     return coords
 
+def count_activities(id_employee):
+    """ Count the number of activities for an employee in the past year
+    """
+    # What's happened the past year 
+    one_year_ago = datetime.now(ZoneInfo("Europe/Paris")) - relativedelta(years=1)
+    count = 0
+    with engine.connect() as conn:
+        count = conn.execute(
+            text("SELECT count(*) FROM activities WHERE id_employee=:id_emp AND start_date>=:date_ref")
+            , {'id_emp': id_employee, 'date_ref': one_year_ago.strftime('%Y-%m-%d %H:%M:%S')}).fetchone()[0]
+    return count
+
 def update_rewards():
     """ Update rewards parquet file
     """
@@ -179,9 +192,30 @@ def update_rewards():
         time.sleep(1)  # Avoid API saturation
 
     # Add distance column
-    df_employees["distance_m"] = distances
-    # 
-    print(df_employees.head(2))
+    df_employees["home_office_distance_km"] = distances
+    # Add bonus column
+    df_employees["bonus"] = df_employees.apply(
+        lambda row: row["income"]*(int(INCOME_PERCENT_REWARD)*1.0/100) if row["id_movement_means"] > 3 else 0, axis=1
+    )
+    # Add movement_means_error column
+    df_employees["movement_means_anomaly"] = df_employees.apply(
+        lambda row: True if (row["id_movement_means"] == 3 
+                             and row["home_office_distance_km"] >= int(MAX_HOME_DISTANCE_WALK)) 
+                             or (row["id_movement_means"] == 4 
+                                 and row["home_office_distance_km"] >= int(MAX_HOME_DISTANCE_OTHER)) else False
+        , axis=1
+        )
+    # Add extra_days column
+    df_employees["extra_days"] = df_employees.apply(
+        lambda row: int(EXTRA_DAYS_REWARD) if count_activities(row["id_employee"]) >= int(MIN_ACTIVITIES_YEAR) else 0
+        , axis=1)
+    # Clean up
+    # TODO: ajouter les moyens de déplacements en string (pour faire des pourcentages)
+    # ajouter fichiers activités avec nom des activités
+    # nb d'activités la dernière année par employé
+
+    df_employees.drop(columns=['income', 'address', 'id_movement_means'], inplace=True)
+    df_employees.to_excel('/opt/spark-data/rewards.xlsx', index=False)
 
 def process_message(batch_df, _):
     """ Process messages from Redpanda Stream
@@ -189,7 +223,7 @@ def process_message(batch_df, _):
     global init
 
     if init:
-        # Create rewards parquet the first time
+        # Create rewards parquet at init time
         update_rewards()
         init = False
     # Send Slack message
@@ -211,6 +245,7 @@ def process_message(batch_df, _):
             # Send Slack message
             try:
                 slack_client.chat_postMessage(channel=SLACK_CHANNEL, text=text_msg, username=SLACK_USERNAME)
+                time.sleep(1)
             except SlackApiError as e:
                 print(f"Erreur Slack: {e.response['error']}")
 

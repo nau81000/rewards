@@ -1,6 +1,6 @@
 # Docker file extending Bitnami image
 FROM bitnami/spark:3.5.0
 USER root
-RUN pip install --no-cache-dir slack_sdk dotenv babel sqlalchemy psycopg2-binary pandas googlemaps
+RUN pip install --no-cache-dir slack_sdk dotenv babel sqlalchemy psycopg2-binary pandas openpyxl googlemaps
 USER 1001
 WORKDIR /opt/spark-apps

@@ -234,7 +234,7 @@ services:
     command: >
       sh -c "
       echo 'Attente de Debezium...' &&
-      sleep 10 &&
+      sleep 20 &&
       echo 'Création du connecteur Debezium...' &&
       curl -H 'Content-Type: application/json' debezium:8083/connectors --data '
         {
