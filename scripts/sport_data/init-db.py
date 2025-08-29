@@ -15,21 +15,21 @@ def create_tables(cursor, conn1):
     """
     """
     tables= {
-        'movement_means': {
-            'id_movement_means': 'int PRIMARY KEY',
-            'movement_means': 'text'
+         'movement_means': {
+            'id': 'int PRIMARY KEY',
+            'name': 'text'
         },
         'contract_types': {
-            'id_contract_type': 'int PRIMARY KEY',
-            'contract_type': 'text'
+            'id': 'int PRIMARY KEY',
+            'name': 'text'
         },
         'business_units': {
-            'id_bu': 'int PRIMARY KEY',
-            'bu': 'text'
+            'id': 'int PRIMARY KEY',
+            'name': 'text'
         },
         'sports': {
-            'id_sport': 'int PRIMARY KEY',
-            'sport': 'text'
+            'id': 'int PRIMARY KEY',
+            'name': 'text'
         },
         'employees': {
             'id_employee': 'int PRIMARY KEY',
@@ -40,15 +40,15 @@ def create_tables(cursor, conn1):
             'income': 'int',
             'vacation_days': 'int',
             'address': 'text',
-            'id_bu': 'int REFERENCES business_units (id_bu)',
+            'id_bu': 'int REFERENCES business_units (id)',
             'id_movement_means': 'int',
-            'id_contract_type': 'int REFERENCES contract_types (id_contract_type)',
+            'id_contract_type': 'int REFERENCES contract_types (id)',
             'id_sport': 'int'
         },
         'activities': {
             'id': 'SERIAL PRIMARY KEY',
             'id_employee': 'int REFERENCES employees (id_employee)',
-            'id_sport': 'int REFERENCES sports (id_sport)',
+            'id_sport': 'int REFERENCES sports (id)',
             'distance': 'float',
             'start_date': 'timestamp NOT NULL',
             'end_date': 'timestamp NOT NULL',
@@ -109,18 +109,24 @@ def import_tables(conn):
     # Create business unit dataframe
     df_bu = pd.DataFrame(df_hr['bu'].drop_duplicates().reset_index(drop=True))
     df_bu['id_bu'] = df_bu.index + 1  # IDs à partir de 1    
-    # And merge with employee dataframe
+    # Merge with employee dataframe
     df_hr = df_hr.merge(df_bu, on='bu', how='left').drop(columns=['bu'])
+    # Rename columns
+    df_bu.rename(columns={'id_bu': 'id', 'bu': 'name'}, inplace=True)
     # Create movement_means dataframe
     df_mm = pd.DataFrame(df_hr['movement_means'].drop_duplicates().reset_index(drop=True))
     df_mm['id_movement_means'] = df_mm.index + 1  # IDs à partir de 1    
-    # And merge with employee dataframe
+    # Merge with employee dataframe
     df_hr = df_hr.merge(df_mm, on='movement_means', how='left').drop(columns=['movement_means'])
+    # Rename columns
+    df_mm.rename(columns={'id_movement_means': 'id', 'movement_means': 'name'}, inplace=True)
     # Create contract type dataframe
     df_contract_types = pd.DataFrame(df_hr['contract_type'].drop_duplicates().reset_index(drop=True))
     df_contract_types['id_contract_type'] = df_contract_types.index + 1  # IDs à partir de 1    
-    # And merge with employee dataframe
+    # Merge with employee dataframe
     df_hr = df_hr.merge(df_contract_types, on='contract_type', how='left').drop(columns=['contract_type'])
+    # Rename columns
+    df_contract_types.rename(columns={'id_contract_type': 'id', 'contract_type': 'name'}, inplace=True)
     # Read sports data
     df_employee_sports = pd.read_excel(getenv("SPORTS_DATA_FILE"))
     df_employee_sports.rename(inplace=True,
@@ -132,11 +138,13 @@ def import_tables(conn):
     # Create sports dataframe
     df_sports = pd.DataFrame(df_employee_sports['sport'].drop_duplicates().dropna().reset_index(drop=True))
     df_sports['id_sport'] = df_sports.index + 1  # IDs à partir de 1
-    # And merge with employee sports dataframe
+    # Merge with employee sports dataframe
     df_employee_sports = df_employee_sports.merge(df_sports, on='sport', how='left').drop(columns=['sport'])
     df_employee_sports['id_sport'] = df_employee_sports['id_sport'].fillna(0).astype(int)
     # Finally merge with employee dataframe
     df_hr = df_hr.merge(df_employee_sports, on='id_employee', how='left')
+    # Rename columns
+    df_sports.rename(columns={'id_sport': 'id', 'sport': 'name'}, inplace=True)
     # Push records into tables
     import_records(conn, df_bu, 'business_units', )
     import_records(conn, df_mm, 'movement_means')

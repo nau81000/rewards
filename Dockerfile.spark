@@ -1,6 +1,10 @@
 # Docker file extending Bitnami image
 FROM bitnami/spark:3.5.0
+
 USER root
 RUN pip install --no-cache-dir slack_sdk dotenv babel sqlalchemy psycopg2-binary pandas openpyxl googlemaps
+# Add PostgreSQL JDBC driver
+ADD https://jdbc.postgresql.org/download/postgresql-42.7.4.jar /opt/spark/jars/postgresql-42.7.4.jar
+
 USER 1001
 WORKDIR /opt/spark-apps

@@ -61,7 +61,7 @@ def main ():
                     first_name = result[0]
                     last_name = result[1]
                     # Get sport name
-                    cursor.execute(f"SELECT sport FROM sports WHERE id_sport={after_data['id_sport']}")
+                    cursor.execute(f"SELECT name FROM sports WHERE id={after_data['id_sport']}")
                     sport = cursor.fetchone()[0]
                     # Building message
                     text_msg= f"Bravo {first_name} {last_name}! Vous avez fait {int(delta_hours)} heures de {sport} le {formatted_date}"

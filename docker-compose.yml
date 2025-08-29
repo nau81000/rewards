@@ -256,8 +256,6 @@ services:
   slack-consumer:
     container_name: slack_consumer
     image: python:3.12-slim
-    profiles:
-      - donotstart
     environment:
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
       POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
@@ -555,10 +553,11 @@ services:
     command: >
       spark-submit
         --master spark://spark-master:7077
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.3,io.delta:delta-spark_2.12:3.2.0
+        --jars /opt/bitnami/spark/jars/postgresql-42.7.4.jar
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.4,io.delta:delta-spark_2.12:3.2.0
         --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
         --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
-        /opt/spark-apps/rewards.py
+        /opt/spark-apps/activities.py
 volumes:
   airflow-db-volume:
   sport-db-volume:
