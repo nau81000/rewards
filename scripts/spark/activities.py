@@ -3,6 +3,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 from pyspark.sql.functions import col, from_json
 from dotenv import load_dotenv
 from os import getenv
+import time
 
 # Load environment variables
 load_dotenv()
@@ -17,6 +18,7 @@ spark = (
     .appName("RedpandaActivitiesToDelta")
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+    .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:2.10.2,org.apache.hadoop:hadoop-client:2.10.2")
     .getOrCreate()
 )
 
@@ -76,16 +78,22 @@ parsed_df = (
 activities_df = parsed_df.select("after.*")
 
 # Step 5: Get employees table
-sports_df = (
-    spark.read
-    .format("jdbc")
-    .option("url", f"jdbc:postgresql://{POSTGRES_DB_HOST}:5432/{POSTGRES_DB_NAME}")
-    .option("dbtable", "public.sports")
-    .option("user", POSTGRES_ADMIN_USER)
-    .option("password", POSTGRES_ADMIN_PWD)
-    .option("driver", "org.postgresql.Driver") 
-    .load()
-)
+while True:
+    try:
+        sports_df = (
+            spark.read
+            .format("jdbc")
+            .option("url", f"jdbc:postgresql://{POSTGRES_DB_HOST}:5432/{POSTGRES_DB_NAME}")
+            .option("dbtable", "public.sports")
+            .option("user", POSTGRES_ADMIN_USER)
+            .option("password", POSTGRES_ADMIN_PWD)
+            .option("driver", "org.postgresql.Driver") 
+            .load()
+        )
+        break
+    except Exception:
+        # Pass until it works
+        time.sleep(1)
 
 # Step 6 : join data frame
 joined_df = activities_df.join(
@@ -102,12 +110,14 @@ joined_df = activities_df.join(
     activities_df.comment
 )
 
+storage = "s3a://databricks-b8znwaytziddgaqktexft7-cloud-storage-bucket/sport-data"
 query = (
     joined_df.writeStream
     .format("delta")
     .outputMode("append")
-    .option("checkpointLocation", "/opt/spark-checkpoints/activities")
-    .start("/opt/spark-data/activities")
+    .option("checkpointLocation", storage + "/checkpoints/activities")
+    .option("mergeSchema", "true")
+    .start(storage + "/delta/activities")
 )
 
 query.awaitTermination()

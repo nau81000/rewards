@@ -548,15 +548,18 @@ services:
       - MIN_ACTIVITIES_YEAR=${MIN_ACTIVITIES_YEAR}
       - INCOME_PERCENT_REWARD=${INCOME_PERCENT_REWARD}
       - EXTRA_DAYS_REWARD=${EXTRA_DAYS_REWARD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     networks:
       - frontend
     command: >
       spark-submit
         --master spark://spark-master:7077
-        --jars /opt/bitnami/spark/jars/postgresql-42.7.4.jar
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.4,io.delta:delta-spark_2.12:3.2.0
+        --jars /opt/bitnami/spark/jars/postgresql-42.7.4.jar,/opt/spark/jars/hadoop-aws-3.3.6.jar,/opt/spark/jars/aws-java-sdk-bundle-1.12.414.jar
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.4,io.delta:delta-spark_2.12:3.2.0,org.apache.spark:spark-hadoop-cloud_2.12:3.5.0
         --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
         --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+        --conf spark.hadoop.fs.s3a.endpoint=s3.eu-west-3.amazonaws.com
         /opt/spark-apps/activities.py
 volumes:
   airflow-db-volume:

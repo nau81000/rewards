@@ -5,6 +5,8 @@ USER root
 RUN pip install --no-cache-dir slack_sdk dotenv babel sqlalchemy psycopg2-binary pandas openpyxl googlemaps
 # Add PostgreSQL JDBC driver
 ADD https://jdbc.postgresql.org/download/postgresql-42.7.4.jar /opt/spark/jars/postgresql-42.7.4.jar
-
+ADD https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/hadoop-aws-3.3.6.jar /opt/spark/jars/hadoop-aws-3.3.6.jar
+ADD https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.414/aws-java-sdk-bundle-1.12.414.jar /opt/spark/jars/aws-java-sdk-bundle-1.12.414.jar 
+RUN chown 1001:1001 /opt/spark/jars/hadoop-aws-3.3.6.jar /opt/spark/jars/aws-java-sdk-bundle-1.12.414.jar /opt/spark/jars/postgresql-42.7.4.jar
 USER 1001
 WORKDIR /opt/spark-apps
