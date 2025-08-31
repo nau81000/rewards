@@ -561,6 +561,21 @@ services:
         --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
         --conf spark.hadoop.fs.s3a.endpoint=s3.eu-west-3.amazonaws.com
         /opt/spark-apps/activities.py
+  dremio:
+    image: dremio/dremio-oss:latest
+    container_name: dremio
+    ports:
+      - "9047:9047"   # UI Web
+      - "31010:31010" # JDBC/ODBC
+      - "31011:31011" # Arrow Flight
+    environment:
+      - SERVICES_COORDINATOR_ENABLED=true
+      - SERVICES_EXECUTOR_ENABLED=true
+      - JAVA_MAX_HEAP=4G
+    volumes:
+      - dremio_data:/opt/dremio/data
+      - dremio_conf:/opt/dremio/conf
+    restart: unless-stopped
 volumes:
   airflow-db-volume:
   sport-db-volume:
@@ -569,6 +584,8 @@ volumes:
   postgresql-exporter:
   redpanda:
   kafka-data:
+  dremio_data:
+  dremio_conf:
 networks:
   frontend:
     # Specify driver options
