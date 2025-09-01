@@ -74,10 +74,11 @@ parsed_df = (
     json_df.withColumn("data", from_json(col("json"), outer_schema))
            .select("data.payload.*")  # only payload
 )
+
 # Step 4: Access "after" fields directly
 activities_df = parsed_df.select("after.*")
 
-# Step 5: Get employees table
+# Step 5: Get sports table
 while True:
     try:
         sports_df = (
@@ -109,8 +110,7 @@ joined_df = activities_df.join(
     activities_df.end_date,
     activities_df.comment
 )
-
-storage = "s3a://databricks-b8znwaytziddgaqktexft7-cloud-storage-bucket/sport-data"
+storage = "s3a://s3-sport-data"
 query = (
     joined_df.writeStream
     .format("delta")
