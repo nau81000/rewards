@@ -510,7 +510,7 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_MEMORY=3G
       - SPARK_WORKER_CORES=2
     networks:
       - frontend
@@ -550,6 +550,7 @@ services:
       - EXTRA_DAYS_REWARD=${EXTRA_DAYS_REWARD}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_ROOT_STORAGE=${AWS_S3_ROOT_STORAGE}
     networks:
       - frontend
     command: >
