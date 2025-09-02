@@ -177,7 +177,7 @@ def process_batch(batch_df, _):
 # Global state
 idle_timer = None
 timer_lock = threading.Lock()
-DEBOUNCE_SECONDS = 30
+DEBOUNCE_SECONDS = 60
 
 # Create Spark session
 spark = (
@@ -200,10 +200,10 @@ raw_df = (
     .load()
 )
 
-# Step 1: Extract JSON string from Kafka value
+# Extract JSON string from Kafka value
 json_df = raw_df.selectExpr("CAST(value AS STRING) as json")
 
-# Step 2: Extract "payload" first
+# Extract "payload" first
 activity_schema = StructType([
     StructField("before", StructType([
         StructField("id", IntegerType()),
@@ -237,13 +237,13 @@ outer_schema = StructType([
     StructField("payload", payload_schema, True)
 ])
 
-# Step 3: Parse into structured fields
+# Parse into structured fields
 parsed_df = (
     json_df.withColumn("data", from_json(col("json"), outer_schema))
            .select("data.payload.*")  # only payload
 )
 
-# Step 4: Access "after" fields directly
+# Access "after" fields directly
 activities_df = parsed_df.select("after.*")
 
 # Step 5: Get sports table
@@ -264,7 +264,7 @@ while True:
         # Pass until it works
         time.sleep(1)
 
-# Step 6 : join data frame
+# Join data frame with sports table
 joined_df = activities_df.join(
     sports_df,
     activities_df.id_sport == sports_df.id,
@@ -279,6 +279,11 @@ joined_df = activities_df.join(
     activities_df.comment
 )
 
+# Start idle timer in case there is no event
+# Will be cancelled if event
+schedule_idle_timer()
+
+# Start writing activities into bucket
 query = (
     joined_df.writeStream
     .foreachBatch(process_batch)
