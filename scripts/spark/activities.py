@@ -71,7 +71,13 @@ def update_rewards():
 
     # Get all employees
     with engine.connect() as conn:
-        df_employees = pd.read_sql_query('SELECT id_employee, income, id_movement_means, address FROM employees', con=conn)
+        df_employees = pd.read_sql_query(
+            'SELECT employees.id_employee, employees.last_name, employees.first_name, \
+                employees.income, employees.id_movement_means, employees.address, \
+                movement_means.name as movement_means \
+                FROM employees, movement_means \
+                WHERE employees.id_movement_means=movement_means.id'
+            , con=conn)
     # Build GPS coordinates
     coords_list = geocode_addresses(gmaps, df_employees["address"].tolist())
     office_coords = geocode_addresses(gmaps, [OFFICE_ADDRESS])
@@ -139,7 +145,7 @@ def update_rewards():
     df_employees.drop(columns=['income', 'address', 'id_movement_means'], inplace=True)
 
     # Write in Delta Lake    
-    (spark.createDataFrame(df_employees)).write.format("delta").mode("overwrite").save(AWS_S3_ROOT_STORAGE + "/delta/rewards")
+    (spark.createDataFrame(df_employees)).write.format("delta").option("overwriteSchema", "true").mode("overwrite").save(AWS_S3_ROOT_STORAGE + "/delta/rewards")
 
 def idle_action():
     """ Update rewards once there no more activities streamed

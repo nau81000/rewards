@@ -90,6 +90,11 @@ def import_tables(conn):
     """
     # Read HR data
     df_hr = pd.read_excel(getenv("RH_DATA_FILE"))
+    # Add an employee leading to an error in movement_means consistency
+    df_hr.loc[len(df_hr)] = [
+        100000, "Doe", "John", "1/1/1970", "bu", "1/1/2025",
+        30000, "CDI", 25, "1 Place du Vigan, 81000 Albi", "Marche/running"
+    ]
     # Rename columns
     df_hr.rename(inplace=True,
         columns={
@@ -129,6 +134,10 @@ def import_tables(conn):
     df_contract_types.rename(columns={'id_contract_type': 'id', 'contract_type': 'name'}, inplace=True)
     # Read sports data
     df_employee_sports = pd.read_excel(getenv("SPORTS_DATA_FILE"))
+    # Add data for John Doe
+    df_employee_sports.loc[len(df_employee_sports)] = [
+        100000, pd.NA
+    ]
     df_employee_sports.rename(inplace=True,
         columns={
             "ID salarié": "id_employee",
