@@ -426,8 +426,8 @@ services:
     image: prom/prometheus
     container_name: prometheus
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus:/prometheus
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
         - '--config.file=/etc/prometheus/prometheus.yml'
         - '--storage.tsdb.path=/prometheus'
@@ -446,10 +446,11 @@ services:
       GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana:/var/lib/grafana
+      - ./config/grafana:/etc/grafana/provisioning/datasources
     networks:
       - frontend
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "3000:3000"
     restart: unless-stopped
   postgresql-exporter:
     image: prometheuscommunity/postgres-exporter
