@@ -578,6 +578,22 @@ services:
       - dremio_data:/opt/dremio/data
       - dremio_conf:/opt/dremio/conf
     restart: unless-stopped
+  dremio-init:
+    image: curlimages/curl:latest
+    container_name: dremio-init
+    depends_on:
+      - dremio
+    volumes:
+      - ./config/dremio:/init
+      - ./docker/dremio/tableau:/tableau
+    entrypoint: ["/bin/sh", "/init/init.sh"]
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - DREMIO_PASSWORD=${DREMIO_PASSWORD}
+      - DREMIO_SOURCE_NAME=${DREMIO_SOURCE_NAME}
+      - DREMIO_USERNAME=${DREMIO_USERNAME}
 volumes:
   airflow-db-volume:
   sport-db-volume:
