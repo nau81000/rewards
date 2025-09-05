@@ -73,3 +73,18 @@ do
 EOF
   echo ""
 done
+
+echo "Creating Tableau activities and rewards tds files..."
+for folder in activities rewards
+do
+  cat > /tmp/${folder}.tds <<EOF
+  <?xml version='1.0' encoding='utf-8'?>
+  <datasource inline="true" version="18.1">
+  <connection class="dremio" dbname="DREMIO" schema="&quot;${DREMIO_SOURCE_NAME}&quot;.&quot;${AWS_S3_BUCKET_NAME}&quot;.delta" port="31010" server="127.0.0.1" username="dremio" v-dremio-product="v-software" sslmode="" v-disable-cert-verification="" v-use-flight-driver="false" authentication="basic" v-routing-queue="" v-routing-tag="" v-engine="">
+  <relation name="${folder}" type="table" table="[${DREMIO_SOURCE_NAME}.${AWS_S3_BUCKET_NAME}.delta].[${folder}]"/>
+  </connection>
+  <aliases enabled="yes"/>
+  </datasource>
+EOF
+done
+

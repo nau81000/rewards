@@ -585,7 +585,7 @@ services:
       - dremio
     volumes:
       - ./config/dremio:/init
-      - ./docker/dremio/tableau:/tableau
+      - ./docker/dremio/tableau:/tmp
     entrypoint: ["/bin/sh", "/init/init.sh"]
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
