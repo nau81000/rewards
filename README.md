@@ -111,6 +111,11 @@ Pour pouvoir envoyer des messages sur un canal Slack, vous devez créer une appl
 │       ├── datasource.yml         # Configuration du service Grafana
 │   ├── prometheus/                     
 │       ├── prometheus.yml         # Configuration du service Prometheus
+├── docker/                        # Dossier dans lequel les données d'exécution des différents services sont placées
+│   ├── airflow/                   # Dossier d'exécution d'Airflow
+│   ├── debezium/                  # Dossier d'exécution de Debezium
+│   ├── dremio/                    # Dossier d'exécution de Dremio
+│       ├── tableau/               # Dossier dans lequel les fichiers de connection Tableau sont créés
 ├── scripts/                       # Modules utilisés par les services
 │   ├── slack/                     
 │       ├── redpanda_to_slack.py   # Consommateur topic Redpanda envoyant des messages sur Slack
