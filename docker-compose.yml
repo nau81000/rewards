@@ -404,7 +404,6 @@ services:
       - frontend
     volumes:
       - ./docker/airflow:/sources
-      - ./scripts/${AIRFLOW_DAG_PACKAGE}/variables.json:/sources/dags/${AIRFLOW_DAG_PACKAGE}/variables.json
   airflow-cli:
     <<: *airflow-common
     profiles:
