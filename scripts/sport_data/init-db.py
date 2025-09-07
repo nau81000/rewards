@@ -89,7 +89,7 @@ def import_tables(conn):
     """ Import human resources data from url
     """
     # Read HR data
-    df_hr = pd.read_excel(getenv("RH_DATA_FILE"))
+    df_hr = pd.read_excel(getenv("SRC_RH_DATA_FILE"))
     # Add an employee leading to an error in movement_means consistency
     df_hr.loc[len(df_hr)] = [
         100000, "Doe", "John", "1/1/1970", "bu", "1/1/2025",
@@ -133,7 +133,7 @@ def import_tables(conn):
     # Rename columns
     df_contract_types.rename(columns={'id_contract_type': 'id', 'contract_type': 'name'}, inplace=True)
     # Read sports data
-    df_employee_sports = pd.read_excel(getenv("SPORTS_DATA_FILE"))
+    df_employee_sports = pd.read_excel(getenv("SRC_SPORTS_DATA_FILE"))
     # Add data for John Doe
     df_employee_sports.loc[len(df_employee_sports)] = [
         100000, pd.NA
@@ -231,7 +231,7 @@ def main():
             'password': getenv("POSTGRES_ADMIN_PWD"),
             'port': 5432
     }
-    db = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
+    db = create_engine(getenv("POSTGRES_SQL_ALCHEMY_CONN"))
     conn = db.connect()
     conn1 = pg.connect(**config)
     conn1.autocommit = True

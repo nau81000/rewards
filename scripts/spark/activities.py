@@ -19,12 +19,12 @@ POSTGRES_ADMIN_USER = getenv('POSTGRES_ADMIN_USER')
 POSTGRES_ADMIN_PWD = getenv('POSTGRES_ADMIN_PWD')
 POSTGRES_DB_HOST = getenv('POSTGRES_DB_HOST')
 AWS_S3_ROOT_STORAGE = getenv("AWS_S3_ROOT_STORAGE")
-OFFICE_ADDRESS = getenv("OFFICE_ADDRESS")
-MAX_HOME_DISTANCE_WALK=getenv("MAX_HOME_DISTANCE_WALK")
-MAX_HOME_DISTANCE_OTHER=getenv("MAX_HOME_DISTANCE_OTHER")
-MIN_ACTIVITIES_YEAR=getenv("MIN_ACTIVITIES_YEAR")
-INCOME_PERCENT_REWARD=getenv("INCOME_PERCENT_REWARD")
-EXTRA_DAYS_REWARD=getenv("EXTRA_DAYS_REWARD")
+REWARDS_OFFICE_ADDRESS = getenv("REWARDS_OFFICE_ADDRESS")
+REWARDS_MAX_HOME_DISTANCE_WALK=getenv("REWARDS_MAX_HOME_DISTANCE_WALK")
+REWARDS_MAX_HOME_DISTANCE_OTHER=getenv("REWARDS_MAX_HOME_DISTANCE_OTHER")
+REWARDS_MIN_ACTIVITIES_YEAR=getenv("REWARDS_MIN_ACTIVITIES_YEAR")
+REWARDS_INCOME_PERCENT=getenv("REWARDS_INCOME_PERCENT")
+REWARDS_EXTRA_DAYS=getenv("REWARDS_EXTRA_DAYS")
 
 # Declare functions
 
@@ -64,7 +64,7 @@ def update_rewards():
     global spark
 
     # Connect to DB
-    engine = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
+    engine = create_engine(getenv("POSTGRES_SQL_ALCHEMY_CONN"))
 
     # Initialiser le client
     gmaps = googlemaps.Client(key=getenv("GOOGLE_MAPS_API_KEY"))
@@ -80,7 +80,7 @@ def update_rewards():
             , con=conn)
     # Build GPS coordinates
     coords_list = geocode_addresses(gmaps, df_employees["address"].tolist())
-    office_coords = geocode_addresses(gmaps, [OFFICE_ADDRESS])
+    office_coords = geocode_addresses(gmaps, [REWARDS_OFFICE_ADDRESS])
 
     # Tool to split in 25 bunches (Google Maps API constraints)
     def chunk_list(lst, size=25):
@@ -127,19 +127,19 @@ def update_rewards():
     df_employees["home_office_distance_km"] = distances
     # Add bonus column
     df_employees["bonus"] = df_employees.apply(
-        lambda row: row["income"]*(int(INCOME_PERCENT_REWARD)*1.0/100) if row["id_movement_means"] > 3 else 0, axis=1
+        lambda row: row["income"]*(int(REWARDS_INCOME_PERCENT)*1.0/100) if row["id_movement_means"] > 3 else 0, axis=1
     )
     # Add movement_means_error column
     df_employees["movement_means_anomaly"] = df_employees.apply(
         lambda row: True if (row["id_movement_means"] == 3 
-                             and row["home_office_distance_km"] >= int(MAX_HOME_DISTANCE_WALK)) 
+                             and row["home_office_distance_km"] >= int(REWARDS_MAX_HOME_DISTANCE_WALK)) 
                              or (row["id_movement_means"] == 4 
-                                 and row["home_office_distance_km"] >= int(MAX_HOME_DISTANCE_OTHER)) else False
+                                 and row["home_office_distance_km"] >= int(REWARDS_MAX_HOME_DISTANCE_OTHER)) else False
         , axis=1
         )
     # Add extra_days column
     df_employees["extra_days"] = df_employees.apply(
-        lambda row: int(EXTRA_DAYS_REWARD) if count_activities(engine, row["id_employee"]) >= int(MIN_ACTIVITIES_YEAR) else 0
+        lambda row: int(REWARDS_EXTRA_DAYS) if count_activities(engine, row["id_employee"]) >= int(REWARDS_MIN_ACTIVITIES_YEAR) else 0
         , axis=1)
 
     df_employees.drop(columns=['income', 'address', 'id_movement_means'], inplace=True)

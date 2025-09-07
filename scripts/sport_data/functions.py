@@ -34,7 +34,7 @@ def get_activities ():
            'password': getenv("POSTGRES_ADMIN_PWD"),
            'port': 5432
     }
-    db = create_engine(getenv("SPORT_DATA_SQL_ALCHEMY_CONN"))
+    db = create_engine(getenv("POSTGRES_SQL_ALCHEMY_CONN"))
     conn = db.connect()
     conn1 = pg.connect(**config)
     conn1.autocommit = True
