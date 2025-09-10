@@ -15,6 +15,8 @@ Ce projet implémente une solution proposant des avantages à l’ensemble des c
 
 - docker
 - docker-compose
+- bucket AWS S3
+- Tableau
 
 ## Installation
 
