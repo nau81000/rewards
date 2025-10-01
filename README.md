@@ -18,6 +18,15 @@ Ce projet implémente une solution proposant des avantages à l’ensemble des c
 - bucket AWS S3
 - Tableau
 
+## Structure principale du projet
+
+```
+├── config/                  # Dossier regroupant les fichiers de configuration des services
+├── docker-compose.yml       # Fichier yaml spécifiant les services
+├── results.pdf              # Résultats d'analyse
+├── scripts/                 # Dossier regroupant les scripts utilisés par les services
+```
+
 ## Installation
 
 1. **Cloner le dépôt**
